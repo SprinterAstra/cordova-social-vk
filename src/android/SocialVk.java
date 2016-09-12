@@ -44,6 +44,16 @@ import com.vk.sdk.api.photo.VKUploadImage;
 import com.vk.sdk.api.photo.VKImageParameters;
 import com.vk.sdk.util.VKJsonHelper;
 
+import android.annotation.SuppressLint;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
+import android.content.pm.Signature;
+import android.support.annotation.NonNull;
+
+import java.math.BigInteger;
+import java.security.MessageDigest;
+import java.util.Arrays;
+
 public class SocialVk extends CordovaPlugin {
     private static final String TAG = "SocialVk";
     private static final String ACTION_INIT = "initSocialVk";
@@ -238,12 +248,43 @@ public class SocialVk extends CordovaPlugin {
         this.cordova.setActivityResultCallback(this);
         Log.i(TAG, "VK initialize");
         VKSdk.initialize(getApplicationContext());
-
+        getCertificateFingerprint(getApplicationContext());
+        
         _callbackContext.sendPluginResult(new PluginResult(PluginResult.Status.OK));
         _callbackContext.success();
         return true;
     }
 
+    private static void getCertificateFingerprint(@NonNull final Context ctx) {
+        try {
+            if (ctx == null || ctx.getPackageManager() == null)
+                return;
+
+            final String packageName = ctx.getPackageName();
+
+            @SuppressLint("PackageManagerGetSignatures")
+            PackageInfo info = ctx.getPackageManager().getPackageInfo(
+                    packageName,
+                    PackageManager.GET_SIGNATURES);
+            assert info.signatures != null;
+            String[] result = new String[info.signatures.length];
+            int i = 0;
+            for (Signature signature : info.signatures) {
+                MessageDigest md = MessageDigest.getInstance("SHA");
+                md.update(signature.toByteArray());
+                result[i++] = toHex(md.digest());
+            }
+            Log.i("Fingerprint: ", Arrays.toString(result));
+        } catch (Exception e) {
+            Log.i("Fingerprint: ", e.getMessage());
+        }
+    }
+
+    private static String toHex(byte[] bytes) {
+        BigInteger bi = new BigInteger(1, bytes);
+        return String.format("%0" + (bytes.length << 1) + "X", bi);
+    }
+    
     private boolean login(String[] permissions)
     {
         VKSdk.login(getActivity(), permissions);
